@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Claude Code launcher that points Claude at a local LiteLLM gateway populated
+# with Codex-oriented model aliases.
+
+export CLAUDE_GATEWAY_CONFIG="${CLAUDE_GATEWAY_CONFIG:-$HOME/.config/litellm/claude-codex.yaml}"
+export CLAUDE_GATEWAY_MODEL="${CLAUDE_GATEWAY_MODEL:-opusplan-opus-4-8[1m]}"
+export CLAUDE_GATEWAY_SMALL_FAST_MODEL="${CLAUDE_GATEWAY_SMALL_FAST_MODEL:-gpt-5.3-codex-spark-sonnet-4-6}"
+export CLAUDE_GATEWAY_HOST="${CLAUDE_GATEWAY_HOST:-127.0.0.1}"
+export CLAUDE_GATEWAY_PORT="${CLAUDE_GATEWAY_PORT:-4005}"
+export CLAUDE_GATEWAY_EFFORT="${CLAUDE_GATEWAY_EFFORT:-xhigh}"
+export CLAUDE_GATEWAY_DANGEROUSLY_SKIP_PERMISSIONS="${CLAUDE_GATEWAY_DANGEROUSLY_SKIP_PERMISSIONS:-0}"
+
+case "$CLAUDE_GATEWAY_MODEL" in
+  *gpt-5.3-codex-spark*)
+    codex_context_window=128000
+    ;;
+  *)
+    codex_context_window=272000
+    ;;
+esac
+export CLAUDE_CODE_AUTO_COMPACT_WINDOW="${CLAUDE_CODE_AUTO_COMPACT_WINDOW:-$codex_context_window}"
+export CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY="${CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY:-1}"
+
+export ANTHROPIC_DEFAULT_OPUS_MODEL="${ANTHROPIC_DEFAULT_OPUS_MODEL:-gpt-5.5-opus-4-8[1m]}"
+export ANTHROPIC_DEFAULT_OPUS_MODEL_NAME="${ANTHROPIC_DEFAULT_OPUS_MODEL_NAME:-GPT-5.5}"
+export ANTHROPIC_DEFAULT_OPUS_MODEL_DESCRIPTION="${ANTHROPIC_DEFAULT_OPUS_MODEL_DESCRIPTION:-Opus-equivalent Codex route through LiteLLM}"
+
+export ANTHROPIC_DEFAULT_SONNET_MODEL="${ANTHROPIC_DEFAULT_SONNET_MODEL:-gpt-5.4-mini-sonnet-4-6[1m]}"
+export ANTHROPIC_DEFAULT_SONNET_MODEL_NAME="${ANTHROPIC_DEFAULT_SONNET_MODEL_NAME:-GPT-5.4 Mini}"
+export ANTHROPIC_DEFAULT_SONNET_MODEL_DESCRIPTION="${ANTHROPIC_DEFAULT_SONNET_MODEL_DESCRIPTION:-Sonnet-equivalent Codex route through LiteLLM}"
+
+export ANTHROPIC_DEFAULT_HAIKU_MODEL="${ANTHROPIC_DEFAULT_HAIKU_MODEL:-gpt-5.3-codex-spark-sonnet-4-6}"
+export ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME="${ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME:-GPT-5.3 Codex Spark}"
+export ANTHROPIC_DEFAULT_HAIKU_MODEL_DESCRIPTION="${ANTHROPIC_DEFAULT_HAIKU_MODEL_DESCRIPTION:-Haiku-equivalent Codex Spark route through LiteLLM}"
+
+case "${1:-}" in
+  -h|--help|-v|--version)
+    exec claude-litellm "$@"
+    ;;
+esac
+
+has_effort=0
+for arg in "$@"; do
+  case "$arg" in
+    --effort|--effort=*)
+      has_effort=1
+      break
+      ;;
+  esac
+done
+
+if [[ "$has_effort" == "1" ]]; then
+  exec claude-litellm "$@"
+fi
+
+exec claude-litellm --effort "$CLAUDE_GATEWAY_EFFORT" "$@"

@@ -1,0 +1,179 @@
+# LiteLLM model aliases for Claude Code through the Anthropic-compatible
+# gateway. Keep credentials in environment variables or provider auth stores.
+
+model_list:
+  - model_name: opusplan
+    litellm_params:
+      model: chatgpt/gpt-5.5
+      reasoning_effort: xhigh
+    model_info:
+      mode: responses
+      max_input_tokens: 272000
+
+  - model_name: opusplan-opus-4-8
+    litellm_params:
+      model: chatgpt/gpt-5.5
+      reasoning_effort: xhigh
+    model_info:
+      mode: responses
+      max_input_tokens: 272000
+      hidden: true
+      compatibility_alias_for: opusplan
+
+  - model_name: "opusplan-opus-4-8[1m]"
+    litellm_params:
+      model: chatgpt/gpt-5.5
+      reasoning_effort: xhigh
+    model_info:
+      mode: responses
+      max_input_tokens: 272000
+      hidden: true
+      compatibility_alias_for: opusplan
+
+  - model_name: gpt-5.5
+    litellm_params:
+      model: chatgpt/gpt-5.5
+      reasoning_effort: xhigh
+    model_info:
+      mode: responses
+      max_input_tokens: 272000
+
+  - model_name: gpt-5.5-opus-4-8
+    litellm_params:
+      model: chatgpt/gpt-5.5
+      reasoning_effort: xhigh
+    model_info:
+      mode: responses
+      max_input_tokens: 272000
+      hidden: true
+      compatibility_alias_for: gpt-5.5
+
+  - model_name: "gpt-5.5-opus-4-8[1m]"
+    litellm_params:
+      model: chatgpt/gpt-5.5
+      reasoning_effort: xhigh
+    model_info:
+      mode: responses
+      max_input_tokens: 272000
+      hidden: true
+      compatibility_alias_for: gpt-5.5
+
+  - model_name: gpt-5.5-codex
+    litellm_params:
+      model: chatgpt/gpt-5.5
+      reasoning_effort: xhigh
+    model_info:
+      mode: responses
+      max_input_tokens: 272000
+
+  - model_name: gpt-5.4
+    litellm_params:
+      model: chatgpt/gpt-5.4
+      reasoning_effort: xhigh
+    model_info:
+      mode: responses
+      max_input_tokens: 272000
+
+  - model_name: gpt-5.4-mini
+    litellm_params:
+      model: chatgpt/gpt-5.4-mini
+      reasoning_effort: xhigh
+    model_info:
+      mode: responses
+      max_input_tokens: 272000
+
+  - model_name: gpt-5.4-mini-sonnet-4-6
+    litellm_params:
+      model: chatgpt/gpt-5.4-mini
+      reasoning_effort: xhigh
+    model_info:
+      mode: responses
+      max_input_tokens: 272000
+      hidden: true
+      compatibility_alias_for: gpt-5.4-mini
+
+  - model_name: "gpt-5.4-mini-sonnet-4-6[1m]"
+    litellm_params:
+      model: chatgpt/gpt-5.4-mini
+      reasoning_effort: xhigh
+    model_info:
+      mode: responses
+      max_input_tokens: 272000
+      hidden: true
+      compatibility_alias_for: gpt-5.4-mini
+
+  - model_name: gpt-5.3-codex-spark
+    litellm_params:
+      model: chatgpt/gpt-5.3-codex-spark
+      reasoning_effort: xhigh
+    model_info:
+      mode: responses
+      max_input_tokens: 128000
+
+  - model_name: gpt-5.3-codex-spark-sonnet-4-6
+    litellm_params:
+      model: chatgpt/gpt-5.3-codex-spark
+      reasoning_effort: xhigh
+    model_info:
+      mode: responses
+      max_input_tokens: 128000
+      hidden: true
+      compatibility_alias_for: gpt-5.3-codex-spark
+
+  - model_name: gpt-5.3-codex
+    litellm_params:
+      model: gpt-5.3-codex
+      api_key: os.environ/OPENAI_API_KEY
+      reasoning_effort: xhigh
+    model_info:
+      mode: chat
+      max_input_tokens: 272000
+
+  - model_name: gpt-5.2-codex
+    litellm_params:
+      model: gpt-5.2-codex
+      api_key: os.environ/OPENAI_API_KEY
+      reasoning_effort: xhigh
+    model_info:
+      mode: chat
+      max_input_tokens: 272000
+
+  - model_name: gpt-5.1-codex
+    litellm_params:
+      model: gpt-5.1-codex
+      api_key: os.environ/OPENAI_API_KEY
+      reasoning_effort: xhigh
+    model_info:
+      mode: chat
+      max_input_tokens: 272000
+
+  - model_name: gpt-5.1-codex-max
+    litellm_params:
+      model: gpt-5.1-codex-max
+      api_key: os.environ/OPENAI_API_KEY
+      reasoning_effort: xhigh
+    model_info:
+      mode: chat
+      max_input_tokens: 272000
+
+  - model_name: gpt-5.1-codex-mini
+    litellm_params:
+      model: gpt-5.1-codex-mini
+      api_key: os.environ/OPENAI_API_KEY
+      reasoning_effort: xhigh
+    model_info:
+      mode: chat
+      max_input_tokens: 272000
+
+  - model_name: gpt-5-codex
+    litellm_params:
+      model: gpt-5-codex
+      api_key: os.environ/OPENAI_API_KEY
+      reasoning_effort: xhigh
+    model_info:
+      mode: chat
+      max_input_tokens: 272000
+
+litellm_settings:
+  drop_params: true
+  set_verbose: false

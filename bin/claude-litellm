@@ -1,0 +1,216 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Starts a local LiteLLM gateway when needed, then launches Claude Code against
+# that gateway using Anthropic-compatible environment variables.
+
+CONFIG="${CLAUDE_GATEWAY_CONFIG:-$HOME/.config/litellm/claude-codex.yaml}"
+HOST="${CLAUDE_GATEWAY_HOST:-127.0.0.1}"
+PORT="${CLAUDE_GATEWAY_PORT:-4005}"
+MODEL="${CLAUDE_GATEWAY_MODEL:-opusplan-opus-4-8[1m]}"
+SMALL_MODEL="${CLAUDE_GATEWAY_SMALL_FAST_MODEL:-gpt-5.3-codex-spark-sonnet-4-6}"
+AUTH_TOKEN="${ANTHROPIC_AUTH_TOKEN:-local-litellm-dev-token}"
+LOG_FILE="${CLAUDE_GATEWAY_LOG:-/tmp/claude-litellm-${PORT}.log}"
+BASE_URL="http://${HOST}:${PORT}"
+
+case "${1:-}" in
+  -h|--help|-v|--version)
+    exec claude "$@"
+    ;;
+esac
+
+require_command() {
+  local name="$1"
+  if ! command -v "$name" >/dev/null 2>&1; then
+    printf 'Missing required command: %s\n' "$name" >&2
+    exit 2
+  fi
+}
+
+require_env() {
+  local name="$1"
+  if [[ -z "${!name:-}" ]]; then
+    printf 'Missing %s. Export it before launching this gateway.\n' "$name" >&2
+    exit 2
+  fi
+}
+
+get_litellm_pid() {
+  pgrep -f "litellm.*--port ${PORT}" | head -n 1 || true
+}
+
+litellm_config_newer_than_process() {
+  local pid="$1"
+  local config_mtime proc_mtime
+
+  [[ -n "$pid" && -e "/proc/$pid" && -f "$CONFIG" ]] || return 1
+  config_mtime=$(stat -c %Y "$CONFIG" 2>/dev/null) || return 1
+  proc_mtime=$(stat -c %Y "/proc/$pid" 2>/dev/null) || return 1
+
+  [[ "$config_mtime" -gt "$proc_mtime" ]]
+}
+
+sync_codex_chatgpt_auth() {
+  local codex_auth="$HOME/.codex/auth.json"
+  local token_dir="${CHATGPT_TOKEN_DIR:-$HOME/.config/litellm/chatgpt}"
+  local auth_file="${CHATGPT_AUTH_FILE:-auth.json}"
+
+  [[ "${CLAUDE_CODEX_SYNC_CODEX_AUTH:-0}" == "1" ]] || return 0
+  [[ -f "$codex_auth" ]] || return 0
+
+  CODEX_AUTH_FILE="$codex_auth" CHATGPT_TOKEN_DIR="$token_dir" CHATGPT_AUTH_FILE="$auth_file" python3 <<'PY'
+import base64
+import json
+import os
+import time
+from pathlib import Path
+
+codex_auth = Path(os.environ["CODEX_AUTH_FILE"])
+target_dir = Path(os.environ["CHATGPT_TOKEN_DIR"]).expanduser()
+target = target_dir / os.environ["CHATGPT_AUTH_FILE"]
+
+
+def jwt_exp(token):
+    parts = str(token).split(".")
+    if len(parts) < 2:
+        return None
+    payload = parts[1] + "=" * (-len(parts[1]) % 4)
+    try:
+        claims = json.loads(base64.urlsafe_b64decode(payload))
+    except Exception:
+        return None
+    exp = claims.get("exp")
+    return exp if isinstance(exp, (int, float)) else None
+
+
+def auth_record_is_fresh(record):
+    if not isinstance(record, dict):
+        return False
+    access_token = record.get("access_token")
+    if not access_token:
+        return False
+    exp = record.get("expires_at") or jwt_exp(access_token)
+    return isinstance(exp, (int, float)) and exp > time.time() + 60
+
+
+try:
+    if target.exists() and auth_record_is_fresh(json.loads(target.read_text())):
+        raise SystemExit(0)
+except SystemExit:
+    raise
+except Exception:
+    pass
+
+try:
+    source = json.loads(codex_auth.read_text())
+except Exception:
+    raise SystemExit(0)
+
+tokens = source.get("tokens") if isinstance(source, dict) else None
+if not isinstance(tokens, dict):
+    raise SystemExit(0)
+
+record = {}
+for key in ("access_token", "refresh_token", "id_token", "account_id"):
+    value = tokens.get(key)
+    if value:
+        record[key] = value
+
+expires_at = jwt_exp(record.get("access_token"))
+if expires_at:
+    record["expires_at"] = expires_at
+
+if "access_token" not in record and "refresh_token" not in record:
+    raise SystemExit(0)
+
+target_dir.mkdir(parents=True, exist_ok=True)
+target.write_text(json.dumps(record))
+target.chmod(0o600)
+PY
+}
+
+claude_args=("$@")
+if [[ "${CLAUDE_GATEWAY_DANGEROUSLY_SKIP_PERMISSIONS:-0}" == "1" ]]; then
+  has_skip_permissions=0
+  for arg in "${claude_args[@]}"; do
+    if [[ "$arg" == "--dangerously-skip-permissions" ]]; then
+      has_skip_permissions=1
+      break
+    fi
+  done
+  if [[ "$has_skip_permissions" == "0" ]]; then
+    claude_args=(--dangerously-skip-permissions "${claude_args[@]}")
+  fi
+fi
+
+require_command claude
+require_command curl
+require_command litellm
+require_command pgrep
+require_command python3
+
+if [[ ! -f "$CONFIG" ]]; then
+  printf 'Missing LiteLLM config: %s\n' "$CONFIG" >&2
+  exit 2
+fi
+
+case "$MODEL" in
+  gpt-*|codex-*|o[0-9]*)
+    if [[ "$MODEL" == *codex-spark* || "$MODEL" == *"[1m]"* ]]; then
+      sync_codex_chatgpt_auth
+    elif [[ -z "${OPENAI_API_KEY:-}" ]]; then
+      require_env OPENAI_API_KEY
+    fi
+    ;;
+  chatgpt/*|opusplan*)
+    sync_codex_chatgpt_auth
+    ;;
+esac
+
+existing_pid=$(get_litellm_pid)
+if [[ -n "$existing_pid" ]] && litellm_config_newer_than_process "$existing_pid"; then
+  printf 'Replacing stale LiteLLM (PID %s) because %s changed.\n' "$existing_pid" "$CONFIG" >&2
+  kill "$existing_pid" 2>/dev/null || true
+  sleep 1
+fi
+
+export LITELLM_USE_CHAT_COMPLETIONS_URL_FOR_ANTHROPIC_MESSAGES="${LITELLM_USE_CHAT_COMPLETIONS_URL_FOR_ANTHROPIC_MESSAGES:-true}"
+
+started_pid=""
+if curl -sf "${BASE_URL}/health/liveliness" >/dev/null 2>&1 || curl -sf "${BASE_URL}/health" >/dev/null 2>&1; then
+  :
+else
+  litellm --config "$CONFIG" --host "$HOST" --port "$PORT" >"$LOG_FILE" 2>&1 &
+  started_pid="$!"
+  for _ in $(seq 1 80); do
+    if curl -sf "${BASE_URL}/health/liveliness" >/dev/null 2>&1 || curl -sf "${BASE_URL}/health" >/dev/null 2>&1; then
+      break
+    fi
+    if ! kill -0 "$started_pid" 2>/dev/null; then
+      printf 'LiteLLM exited while starting. Log: %s\n' "$LOG_FILE" >&2
+      sed -n '1,160p' "$LOG_FILE" >&2 || true
+      exit 1
+    fi
+    sleep 0.25
+  done
+
+  if ! curl -sf "${BASE_URL}/health/liveliness" >/dev/null 2>&1 && ! curl -sf "${BASE_URL}/health" >/dev/null 2>&1; then
+    printf 'LiteLLM did not become healthy. Log: %s\n' "$LOG_FILE" >&2
+    sed -n '1,160p' "$LOG_FILE" >&2 || true
+    kill "$started_pid" 2>/dev/null || true
+    exit 1
+  fi
+fi
+
+cleanup() {
+  if [[ -n "$started_pid" ]]; then
+    kill "$started_pid" 2>/dev/null || true
+  fi
+}
+trap cleanup EXIT
+
+ANTHROPIC_BASE_URL="$BASE_URL" \
+ANTHROPIC_AUTH_TOKEN="$AUTH_TOKEN" \
+ANTHROPIC_MODEL="$MODEL" \
+ANTHROPIC_SMALL_FAST_MODEL="$SMALL_MODEL" \
+claude "${claude_args[@]}"

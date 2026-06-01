@@ -1,0 +1,10 @@
+# Example ~/.codex/config.toml settings for pairing Codex CLI defaults with
+# the claude-codex gateway. Merge these top-level keys into your own config.
+
+model = "gpt-5.5"
+model_context_window = 272000
+model_reasoning_effort = "xhigh"
+plan_mode_reasoning_effort = "xhigh"
+
+[features]
+memories = true
