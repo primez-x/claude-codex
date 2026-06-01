@@ -121,3 +121,7 @@ Run this after installing on a user machine:
 ## Security
 
 See [SECURITY.md](SECURITY.md). Do not open issues or pull requests containing credentials, token values, private logs, or full auth JSON files.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
